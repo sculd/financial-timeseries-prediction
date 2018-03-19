@@ -23,11 +23,10 @@ from tensorflow.contrib.learn.python.learn import learn_runner
 from tensorflow.contrib.learn.python.learn.utils import (
     saved_model_export_utils)
 
-
 def generate_experiment_fn(data_dir,
                            train_batch_size=100,
                            eval_batch_size=100,
-                           train_steps=10000,
+                           train_steps=100,
                            eval_steps=100,
                            **experiment_args):
 
@@ -40,10 +39,6 @@ def generate_experiment_fn(data_dir,
         eval_input_fn=model.get_input_fn(
             filename=os.path.join(data_dir, 'GOOG_series_validation.csv'),
             batch_size=eval_batch_size),
-        export_strategies=[saved_model_export_utils.make_export_strategy(
-            model.serving_input_fn,
-            default_output_alternative_key=None,
-            exports_to_keep=1)],
         train_steps=train_steps,
         eval_steps=eval_steps,
         **experiment_args
@@ -113,6 +108,7 @@ if __name__ == '__main__':
   arguments.pop('job-dir', None)
 
   output_dir = arguments.pop('output_dir')
+  print(arguments)
 
   # Run the training job
   learn_runner.run(generate_experiment_fn(**arguments), output_dir)
