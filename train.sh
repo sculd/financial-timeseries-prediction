@@ -12,7 +12,8 @@ gcloud ml-engine jobs submit training job_timeseries \
 
 DATE=`date '+%Y_%m_%dT%H_%M_%S'`
 JOB_NAME=job_timeseries_${DATE}
-gcloud ml-engine jobs submit training ${JOB_NAME} --package-path trainer --module-name trainer.task --job-dir gs://sonar-ml/${JOB_NAME} --runtime-version 1.6 --region us-central1 --scale-tier standard-1 -- --data_dir gs://sonar-ml/timeseries --output_dir gs://sonar-ml/${JOB_NAME} --train_steps 30000
+JOB_DIR=gs://sonar-ml/jobs/${JOB_NAME}
+gcloud ml-engine jobs submit training ${JOB_NAME} --package-path trainer --module-name trainer.task --job-dir ${JOB_DIR} --runtime-version 1.6 --region us-central1 --scale-tier standard-1 -- --data_dir gs://sonar-ml/timeseries --output_dir ${JOB_DIR} --train_steps 20000
 
 
 gcloud ml-engine local train --package-path trainer --module-name trainer.task --job-dir gs://sonar-ml/job_timeseries -- --data_dir gs://sonar-ml/timeseries --output_dir gs://sonar-ml/job_timeseries --train_steps 1000

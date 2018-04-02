@@ -50,14 +50,14 @@ def _model_fn(features, labels, mode):
   numof_i = input_layer.shape[0]
   i_size = input_layer.shape[1]
 
-  wsdatato1 = tf.Variable(tf.truncated_normal([i_size, h1_size], stddev = 1.0 / math.sqrt(h1_size), name = 'init_wsdatato1_normal'), name = 'wsdatato1')
-  h1bs = tf.Variable(tf.zeros([h1_size], name = 'init_h1bs_zero'), name = 'h1bs')
-  ws1to2 = tf.Variable(tf.truncated_normal([h1_size, h2_size], stddev = 1.0 / math.sqrt(h2_size), name = 'init_ws1to2_normal'), name = 'ws1to2')
-  h2bs = tf.Variable(tf.zeros([h2_size], name = 'init_h2bs_zero'), name = 'h2bs')
-  ws2to3 = tf.Variable(tf.truncated_normal([h2_size, h3_size], stddev = 1.0 / math.sqrt(h3_size), name = 'init_ws2to3_normal'), name = 'ws2to3')
-  h3bs = tf.Variable(tf.zeros([h3_size], name = 'init_h3bs_zero'), name = 'h3bs')
-  ws3to4 = tf.Variable(tf.truncated_normal([h3_size, num_labels], stddev = 1.0 / math.sqrt(num_labels), name = 'init_ws3to4_normal'), name = 'ws3to4')
-  h4bs = tf.Variable(tf.zeros([num_labels], name = 'init_h4bs_zero'), name = 'h4bs')
+  wsdatato1 = tf.Variable(tf.truncated_normal([i_size, h1_size], stddev = 1.0 / math.sqrt(h1_size)), name = 'wsdatato1')
+  h1bs = tf.Variable(tf.zeros([h1_size]), name = 'h1bs')
+  ws1to2 = tf.Variable(tf.truncated_normal([h1_size, h2_size], stddev = 1.0 / math.sqrt(h2_size)), name = 'ws1to2')
+  h2bs = tf.Variable(tf.zeros([h2_size]), name = 'h2bs')
+  ws2to3 = tf.Variable(tf.truncated_normal([h2_size, h3_size], stddev = 1.0 / math.sqrt(h3_size)), name = 'ws2to3')
+  h3bs = tf.Variable(tf.zeros([h3_size]), name = 'h3bs')
+  ws3to4 = tf.Variable(tf.truncated_normal([h3_size, num_labels], stddev = 1.0 / math.sqrt(num_labels)), name = 'ws3to4')
+  h4bs = tf.Variable(tf.zeros([num_labels]), name = 'h4bs')
 
   def model(data):
       h1 = tf.matmul(data, wsdatato1) + h1bs
@@ -88,7 +88,8 @@ def _model_fn(features, labels, mode):
     res_loss += reg_lambda * (tf.nn.l2_loss(ws2to3) + tf.nn.l2_loss(h3bs))
     res_loss += reg_lambda * (tf.nn.l2_loss(ws3to4) + tf.nn.l2_loss(h4bs))
     loss = prediction_loss + res_loss    
-    tf.summary.scalar('OptimizeLoss', prediction_loss)
+    tf.summary.scalar('OptimizeLoss', loss)
+    tf.summary.scalar('PredictionLoss', prediction_loss)
 
   if mode == Modes.INFER:
     predictions = {
@@ -113,7 +114,7 @@ def _model_fn(features, labels, mode):
     }
     return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=eval_metric_ops)      
     '''
-    return tf.estimator.EstimatorSpec(mode, loss=loss)
+    return tf.estimator.EstimatorSpec(mode, loss=prediction_loss)
 
 def build_estimator(model_dir):
   return tf.estimator.Estimator(
