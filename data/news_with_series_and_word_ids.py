@@ -4,6 +4,8 @@ _DATE_REGEXP = re.compile('\d{4}-\d{2}-\d{2}')
 
 FILENAME_BLOOMBERG = 'data/sp500_bloomberg_combined_with_ids.txt'
 FILENAME_REUTERS = 'data/sp500_reuters_combined_with_ids.txt'
+FILENAME_BLOOMBERG_PADDED = 'data/sp500_bloomberg_combined_with_ids_padded.txt'
+FILENAME_REUTERS_PADDED = 'data/sp500_reuters_combined_with_ids_padded.txt'
 
 class Day:
     def __init__(self, date):
@@ -18,6 +20,7 @@ class Day:
         return self.series is not None and len(self.ids_list) > 0
     def pad_ids(self, maxlen = None):
         self.ids_list = tf.keras.preprocessing.sequence.pad_sequences(self.ids_list, maxlen = maxlen)
+
     def print(self):
         print(self.date)
         print(self.series)
