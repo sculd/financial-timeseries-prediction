@@ -1,3 +1,6 @@
 WIKI_PRICES.csv
 data/XNAS*
 data/Stock_Dataset*
+test_log*
+train_log*
+*.sst

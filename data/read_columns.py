@@ -1,10 +1,21 @@
 import pandas as pd, numpy as np
 
-def read(filename, feature_cols = ['Close'], val_col = 'Close', window_size = 22):
+FEATURE_COLS = ['Close', 'Volume']
+
+def Bolinger_Bands(stock_price, window_size, num_of_std):
+    rolling_mean = stock_price.rolling(window=window_size).mean()
+    rolling_std  = stock_price.rolling(window=window_size).std()
+    upper_band = rolling_mean + (rolling_std*num_of_std)
+    lower_band = rolling_mean - (rolling_std*num_of_std)
+
+    return rolling_mean, upper_band, lower_band
+
+
+def read(filename, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22):
     cols = [] + feature_cols
     df = pd.read_csv(filename, index_col = 0)
-    for i in range(1, window_size):
-        for col in feature_cols:
+    for col in feature_cols:
+        for i in range(1, window_size):
             c = col + ('%d' % (i))
             df[c] = df[col].shift(i)
             cols.append(c)
@@ -12,6 +23,9 @@ def read(filename, feature_cols = ['Close'], val_col = 'Close', window_size = 22
     df = df.dropna()
     df_data = df[cols]
     df_label = df[val_col].shift(-1) > df['Close']
+    df_data = np.array(df_data)
+    df_label = np.array(df_label)
+    df_data = df_data.reshape([len(df_data), -1, len(feature_cols)])
 
     train_size = int(len(df_data) * 0.6)
     train_data, train_labels = np.array(df_data[:train_size]), df_label[:train_size]
@@ -22,13 +36,13 @@ def read(filename, feature_cols = ['Close'], val_col = 'Close', window_size = 22
     print("train_data shape", train_data.shape)
     if len(train_data.shape) == 2:
         train_data = np.expand_dims(train_data, axis=-1)
-        valid_labels = np.expand_dims(valid_labels, axis=-1)
+        valid_data = np.expand_dims(valid_data, axis=-1)
 
     return train_data, train_labels, valid_data, valid_labels
 
-def read_sp500_close(feature_cols = ['Close'], val_col = 'Close', window_size = 22):
-    return read('data/sp500_ohlc.csv', feature_cols = feature_cols, val_col = val_col, window_size = window_size)
+def read_sp500_close(feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22):
+    return read('data/sp500_ohlc.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col, window_size = window_size)
 
-def read_goog_close(feature_cols = ['Close'], val_col = 'Close', window_size = 22):
-    return read('data/goog_ohlc.csv', feature_cols = feature_cols, val_col = val_col, window_size = window_size)
+def read_goog_close(feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22):
+    return read('data/goog_ohlc.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col, window_size = window_size)
 
