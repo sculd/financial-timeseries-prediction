@@ -5,7 +5,7 @@ import data.read_columns as read_columns
 ##########################################################
 
 WINDDOW_SIZE = 64
-N_CHANNELS = len(read_columns.FEATURE_COLS)# + 3 # 3 for bollinger
+N_CHANNELS = len(read_columns.FEATURE_COLS)# + 2 # 2 for bollinger
 NUM_LABELS = 2 # up or down
 H1_SIZE = 128 * N_CHANNELS
 reg_lambda = 0.0005
@@ -32,9 +32,9 @@ with tf.device(DEVICE_NAME):
                 filters,
                 kernel_size = 2,
                 activation=tf.nn.relu,
-                kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0005),
-                bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0005),
-                activity_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0001)
+                kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0003),
+                bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0005)
+                #activity_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0001)
                 )
 
             layer = tf.layers.max_pooling1d(

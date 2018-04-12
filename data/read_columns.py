@@ -7,22 +7,22 @@ def bolinger_bands(stock_price, window_size = 20, num_of_std = 3):
     rolling_std  = stock_price.rolling(window=window_size).std()
     upper_band = rolling_mean + (rolling_std*num_of_std)
     lower_band = rolling_mean - (rolling_std*num_of_std)
-    return rolling_mean, upper_band, lower_band
+    return (rolling_mean - lower_band) / rolling_mean, (upper_band - lower_band) / rolling_mean
 
 def read(filename, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22):
     cols = []# + feature_cols
     df = pd.read_csv(filename, index_col = 0)
-    bollinger_cols = [] #['rolling_mean', 'upper', 'lower']
-    #df[bollinger_cols[0]], df[bollinger_cols[1]], df[bollinger_cols[2]] = bolinger_bands(df[val_col])
+    bollinger_cols = [] #['rolling', 'band']
+    #df[bollinger_cols[0]], df[bollinger_cols[1]] = bolinger_bands(df[val_col])
     df[val_col] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).std()
-    df[vol_col] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).std()
+    df[vol_col] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).mean()
+    #df = (df - df.rolling(window_size).mean()) / df.rolling(window_size).std()
     all_feature_cols = feature_cols + bollinger_cols
     for i in range(0, window_size):
         for col in all_feature_cols:
             c = col + ('%d' % (i))
             df[c] = df[col].shift(i)
             cols.append(c)
-    #df = (df - df.rolling(window_size).mean()) / df.rolling(window_size).std()
     df = df.dropna()
     df_data = df[cols]
     df_label = df[val_col].shift(-1) > df['Close']
