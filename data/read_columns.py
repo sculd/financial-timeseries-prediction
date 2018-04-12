@@ -2,30 +2,34 @@ import pandas as pd, numpy as np
 
 FEATURE_COLS = ['Close', 'Volume']
 
-def Bolinger_Bands(stock_price, window_size, num_of_std):
+def bolinger_bands(stock_price, window_size = 20, num_of_std = 3):
     rolling_mean = stock_price.rolling(window=window_size).mean()
     rolling_std  = stock_price.rolling(window=window_size).std()
     upper_band = rolling_mean + (rolling_std*num_of_std)
     lower_band = rolling_mean - (rolling_std*num_of_std)
-
     return rolling_mean, upper_band, lower_band
 
-
 def read(filename, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22):
-    cols = [] + feature_cols
+    cols = []# + feature_cols
     df = pd.read_csv(filename, index_col = 0)
-    for col in feature_cols:
-        for i in range(1, window_size):
+    bollinger_cols = [] #['rolling_mean', 'upper', 'lower']
+    #df[bollinger_cols[0]], df[bollinger_cols[1]], df[bollinger_cols[2]] = bolinger_bands(df[val_col])
+    df[val_col] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).std()
+    df[vol_col] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).std()
+    all_feature_cols = feature_cols + bollinger_cols
+    for i in range(0, window_size):
+        for col in all_feature_cols:
             c = col + ('%d' % (i))
             df[c] = df[col].shift(i)
             cols.append(c)
-    df = (df - df.rolling(window_size).mean()) / df.rolling(window_size).std()
+    #df = (df - df.rolling(window_size).mean()) / df.rolling(window_size).std()
     df = df.dropna()
     df_data = df[cols]
     df_label = df[val_col].shift(-1) > df['Close']
     df_data = np.array(df_data)
     df_label = np.array(df_label)
-    df_data = df_data.reshape([len(df_data), -1, len(feature_cols)])
+    print("df_data shape before reshape", df_data.shape)
+    df_data = df_data.reshape([len(df_data), -1, len(all_feature_cols)])
 
     train_size = int(len(df_data) * 0.6)
     train_data, train_labels = np.array(df_data[:train_size]), df_label[:train_size]

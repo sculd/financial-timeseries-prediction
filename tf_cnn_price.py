@@ -5,7 +5,7 @@ import data.read_columns as read_columns
 ##########################################################
 
 WINDDOW_SIZE = 64
-N_CHANNELS = len(read_columns.FEATURE_COLS)
+N_CHANNELS = len(read_columns.FEATURE_COLS)# + 3 # 3 for bollinger
 NUM_LABELS = 2 # up or down
 H1_SIZE = 128 * N_CHANNELS
 reg_lambda = 0.0005
