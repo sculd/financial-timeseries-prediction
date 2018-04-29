@@ -4,27 +4,22 @@ import data.read_columns as read_columns
 
 ##########################################################
 
-WINDDOW_SIZE = 64
-N_CHANNELS = len(read_columns.FEATURE_COLS)# + 2 # 2 for bollinger
+_WINDOW_SIZE = 4
+_NUM_FEATURES = _WINDOW_SIZE
+N_CHANNELS = read_columns.N_CHANNELS_HISTORY
 NUM_LABELS = 2 # up or down
-H1_SIZE = 128 * N_CHANNELS
 reg_lambda = 0.0005
+
 DEVICE_NAME = "/gpu:0"
 
 graph = tf.Graph()
 with tf.device(DEVICE_NAME):
     with graph.as_default():
-        inputs = tf.placeholder(tf.float32, [None, WINDDOW_SIZE, N_CHANNELS], name='inputs')
+        inputs = tf.placeholder(tf.float32, [None, _NUM_FEATURES, N_CHANNELS], name='inputs')
         labels = tf.placeholder(tf.float32, [None, 2], name='labels')
         keep_prob_ = tf.placeholder(tf.float32, name='keep')
         global_step = tf.Variable(0)  # count the number of steps taken.
         learning_rate_ = tf.train.exponential_decay(0.003, global_step, 1, 0.999, staircase=True)
-
-        def fully_connect(inputs, w, b):
-            h = tf.matmul(inputs, w, transpose_a = True) + b
-            h = tf.nn.leaky_relu(h)
-            h = tf.nn.dropout(h, 0.5)
-            return h
 
         def cnn(inputs, filters):
             layer = tf.layers.conv1d(
@@ -32,8 +27,8 @@ with tf.device(DEVICE_NAME):
                 filters,
                 kernel_size = 2,
                 activation=tf.nn.relu,
-                kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0003),
-                bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0005)
+                kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0030),
+                bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0002)
                 #activity_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0001)
                 )
 
@@ -51,17 +46,19 @@ with tf.device(DEVICE_NAME):
             # (batch, WINDDOW_SIZE/2, 12) -> (batch, WINDDOW_SIZE/4, 24)
             layer = cnn(layer, 24)
             # (batch, WINDDOW_SIZE/4, 24) -> (batch, WINDDOW_SIZE/8, 48)
-            layer = cnn(layer, 48)
+            #layer = cnn(layer, 48)
 
             # Flatten and add dropout
-            flat = tf.reshape(layer, (-1, WINDDOW_SIZE * 6))
-            flat = tf.nn.dropout(flat, keep_prob=keep_prob_)
+            # 1/8 * 48 = 6
+            layer = tf.reshape(layer, (-1, _WINDOW_SIZE * 6))
+            layer = tf.nn.dropout(layer, keep_prob=keep_prob_)
 
-            return flat
+            return layer
 
         layer = model(inputs)
         # Predictions
         logits = tf.layers.dense(layer, NUM_LABELS)
+        pred = tf.argmax(logits, 1)
 
         # Cost function and optimizer
         with tf.name_scope('cost'):
@@ -74,19 +71,19 @@ with tf.device(DEVICE_NAME):
         optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
 
         # Accuracy
-        correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
+        correct_pred = tf.equal(pred, tf.argmax(labels, 1))
         with tf.name_scope('accuracy'):
             accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name='accuracy')
         tf.summary.scalar('accuracy', accuracy)
 
 ################################################################################################
 
-train_data, train_labels, valid_data, valid_labels = read_columns.read_goog_close(window_size = WINDDOW_SIZE)
+train_data, train_labels, valid_data, valid_labels = read_columns.read_bitstamp_btcusd_2017_hourly_history(window_size = _WINDOW_SIZE)
 
-num_steps = 1 * 3000 + 1
+num_batch_steps = 1 * 3000 + 1
 batch_size = 100
+keep_prob = 0.5
 
-batch_scores_size = 160
 with tf.Session(graph=graph) as session:
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter('train_log', session.graph)
@@ -94,27 +91,32 @@ with tf.Session(graph=graph) as session:
 
     tf.global_variables_initializer().run()
     prev_weights = None
-    bench_scores = deque([], batch_scores_size)
 
-    for step in range(num_steps):
+    for step in range(num_batch_steps):
         offset = (step * batch_size) % (train_data.shape[0] - batch_size)
 
         batch_data = train_data[offset:(offset + batch_size)]
         batch_labels = train_labels[offset:(offset + batch_size)]
 
-        feed_dict = {inputs: batch_data, labels: batch_labels, keep_prob_: 0.7}
+        feed_dict = {inputs: batch_data, labels: batch_labels, keep_prob_: keep_prob}
         summary, opt, acc = session.run([merged, optimizer, accuracy], feed_dict=feed_dict)
-        train_writer.add_summary(summary, step)
 
-        if (step % 10 == 0 or step == num_steps - 1):
+        if (step % 10 == 0 or step == num_batch_steps - 1):
+            summary, acc = session.run([merged, accuracy],
+                                            feed_dict={inputs: train_data, labels: train_labels, keep_prob_: keep_prob})
+            train_writer.add_summary(summary, step)
+
             test_summary, test_acc = session.run([merged,  accuracy],
-                                            feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: 0.7})
+                                            feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
             test_writer.add_summary(test_summary, step)
 
-        if (step % 100 == 0 or step == num_steps - 1):
+
+        if (step % 100 == 0 or step == num_batch_steps - 1):
             print('step %d' % (step))
             print('train accuracy: %.2f' % (acc))
             print('test accuracy: %.2f' % (test_acc))
+            pr = session.run([pred], feed_dict={inputs: batch_data, labels: batch_labels, keep_prob_: keep_prob})
+            print('mean prediction in a batch', np.mean(pr))
             print()
 
     session.close()
