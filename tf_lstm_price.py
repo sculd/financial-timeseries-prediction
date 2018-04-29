@@ -1,6 +1,7 @@
 import tensorflow as tf, math, pandas as pd, numpy as np
 from collections import deque
 import data.read_columns as read_columns
+import optimize_model
 
 ##########################################################
 
@@ -33,31 +34,14 @@ with tf.device(DEVICE_NAME):
             return layer
 
         layer = model(inputs)
-        # Predictions
-        logits = tf.layers.dense(layer, NUM_LABELS)
-        pred = tf.argmax(logits, 1)
-
-        # Cost function and optimizer
-        with tf.name_scope('cost'):
-            cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels))
-            reg_cost = tf.losses.get_regularization_loss()
-            cost += reg_cost
-        tf.summary.scalar('cost', cost)
-        tf.summary.scalar('reg_cost', reg_cost)
-
+        pred, cost, accuracy = optimize_model.optimize_classifier(layer, labels, NUM_LABELS)
         optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
-
-        # Accuracy
-        correct_pred = tf.equal(pred, tf.argmax(labels, 1))
-        with tf.name_scope('accuracy'):
-            accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name='accuracy')
-        tf.summary.scalar('accuracy', accuracy)
 
 ################################################################################################
 
 train_data, train_labels, valid_data, valid_labels = read_columns.read_bitstamp_btcusd_2017_hourly_history(window_size = _WINDOW_SIZE)
 
-num_batch_steps = 1 * 3000 + 1
+num_batch_steps = 3 * 100 + 1
 batch_size = 100
 keep_prob = 0.5
 
@@ -86,7 +70,6 @@ with tf.Session(graph=graph) as session:
             test_summary, test_acc = session.run([merged,  accuracy],
                                             feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
             test_writer.add_summary(test_summary, step)
-
 
         if (step % 100 == 0 or step == num_batch_steps - 1):
             print('step %d' % (step))

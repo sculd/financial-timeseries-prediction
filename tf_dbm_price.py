@@ -1,6 +1,7 @@
 import tensorflow as tf, math, pandas as pd, numpy as np
 from collections import deque
 import data.read_columns as read_columns
+import optimize_model
 
 ##########################################################
 
@@ -37,39 +38,18 @@ with tf.device(DEVICE_NAME):
             layer = fully_connect(layer, H1_SIZE)
             layer = fully_connect(layer, H2_SIZE)
             layer = fully_connect(layer, H3_SIZE)
-            layer = fully_connect(layer, NUM_LABELS)
             return layer
 
-        logits = model(inputs)
-        pred = tf.argmax(logits, 1)
-
-        # Cost function and optimizer
-        with tf.name_scope('cost'):
-            cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels))
-            reg_cost = tf.losses.get_regularization_loss()
-            cost += reg_cost
-        tf.summary.scalar('cost', cost)
-        tf.summary.scalar('reg_cost', reg_cost)
-
-        predicted_indices = tf.argmax(input=logits, axis=1)
-        predictions = tf.one_hot(predicted_indices, 2)
-        label_indices = tf.argmax(input=labels, axis=1)
-
-        #learning_rate = tf.train.exponential_decay(0.001, global_step, 1, 0.99995, staircase=True)
-        optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate_).minimize(cost, global_step=global_step)
-
-        # Accuracy
-        correct_pred = tf.equal(pred, tf.argmax(labels, 1))
-        with tf.name_scope('accuracy'):
-            accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name='accuracy')
-        tf.summary.scalar('accuracy', accuracy)
+        layer = model(inputs)
+        pred, cost, accuracy = optimize_model.optimize_classifier(layer, labels, NUM_LABELS)
+        optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
 
 ################################################################################################
 
 
 train_data, train_labels, valid_data, valid_labels = read_columns.read_sp500_close_history(window_size = _WINDOW_SIZE, reshape_per_channel = False)
 
-num_batch_steps = 1 * 3000 + 1
+num_batch_steps = 1500 + 1
 batch_size = 100
 keep_prob = 0.5
 
@@ -98,7 +78,6 @@ with tf.Session(graph=graph) as session:
             test_summary, test_acc = session.run([merged,  accuracy],
                                             feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
             test_writer.add_summary(test_summary, step)
-
 
         if (step % 100 == 0 or step == num_batch_steps - 1):
             print('step %d' % (step))
