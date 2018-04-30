@@ -43,6 +43,7 @@ with tf.device(DEVICE_NAME):
         layer = model(inputs)
         pred, cost, accuracy = optimize_model.optimize_classifier(layer, labels, NUM_LABELS)
         optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
+        #optimizer = tf.contrib.opt.PowerSignOptimizer().minimize(cost, global_step=global_step)
 
 ################################################################################################
 

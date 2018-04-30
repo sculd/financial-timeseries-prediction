@@ -9,8 +9,7 @@ _WINDOW_SIZE = 4
 _NUM_FEATURES = _WINDOW_SIZE
 N_CHANNELS = read_columns.N_CHANNELS_HISTORY
 _LSTM_CELL_SIZE = 100
-NUM_LABELS = 2 # up or down
-reg_lambda = 0.0005
+_NUM_LABELS = 2 # up or down
 
 DEVICE_NAME = "/gpu:0"
 
@@ -18,7 +17,7 @@ graph = tf.Graph()
 with tf.device(DEVICE_NAME):
     with graph.as_default():
         inputs = tf.placeholder(tf.float32, [None, _NUM_FEATURES, N_CHANNELS], name='inputs')
-        labels = tf.placeholder(tf.float32, [None, 2], name='labels')
+        labels = tf.placeholder(tf.float32, [None, _NUM_LABELS], name='labels')
         keep_prob_ = tf.placeholder(tf.float32, name='keep')
         global_step = tf.Variable(0)  # count the number of steps taken.
         learning_rate_ = tf.train.exponential_decay(0.003, global_step, 1, 0.999, staircase=True)
@@ -34,14 +33,15 @@ with tf.device(DEVICE_NAME):
             return layer
 
         layer = model(inputs)
-        pred, cost, accuracy = optimize_model.optimize_classifier(layer, labels, NUM_LABELS)
-        optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
+        pred, cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
+        #optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
+        optimizer = tf.contrib.opt.PowerSignOptimizer().minimize(cost, global_step=global_step)
 
 ################################################################################################
 
 train_data, train_labels, valid_data, valid_labels = read_columns.read_bitstamp_btcusd_2017_hourly_history(window_size = _WINDOW_SIZE)
 
-num_batch_steps = 3 * 100 + 1
+num_batch_steps = 5 * 100 + 1
 batch_size = 100
 keep_prob = 0.5
 
