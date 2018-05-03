@@ -1,11 +1,11 @@
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np, random, datetime
 
 FEATURE_COLS = ['Close', 'Volume']
 _TARIN_RANGES = [(0.0, 0.2), (0.3, 0.5), (0.7, 0.9)]
 NUM_FEATURES_RETURNS = 6
 N_CHANNELS_HISTORY = 2 # price, volume, 2 bollingers
 N_CHANNELS_RETURNS = 1
-
+PRED_LENGTH = 3
 
 def bolinger_bands(stock_price, window_size = 20, num_of_std = 3):
     rolling_mean = stock_price.rolling(window=window_size).mean()
@@ -26,10 +26,7 @@ def rsi(stock_price, window_size = 20):
     rs = roll_up / roll_down
     return rs
 
-def separate_train_valid(df_data, df_label, train_ranges, window_size = 22):
-    train_data, train_labels = [], []
-    valid_data, valid_labels = [], []
-    dl = len(df_data)
+def get_train_valid_indices(dl, train_ranges, window_size = 22):
     train_indices = []
     for i, train_range in enumerate(train_ranges):
         ts = int(dl *  train_range[0])
@@ -54,27 +51,19 @@ def separate_train_valid(df_data, df_label, train_ranges, window_size = 22):
             valid_indices.append((vs,ve))
 
         prev_train_range = train_range
+    return train_indices, valid_indices
 
-    train_data = np.concatenate([df_data[pair[0]:pair[1]] for pair in train_indices], axis=0)
-    train_labels = np.concatenate([df_label[pair[0]:pair[1]] for pair in train_indices], axis=0)
+def separate_train_valid(df, train_ranges, window_size=22):
+    train_indices, valid_indices = get_train_valid_indices(len(df), train_ranges, window_size=window_size)
 
-    valid_data = np.concatenate([df_data[pair[0]:pair[1]] for pair in valid_indices], axis=0)
-    valid_labels = np.concatenate([df_label[pair[0]:pair[1]] for pair in valid_indices], axis=0)
+    train = np.concatenate([df[pair[0]:pair[1]] for pair in train_indices], axis=0)
+    valid = np.concatenate([df[pair[0]:pair[1]] for pair in valid_indices], axis=0)
 
-    '''
-    train_size = int(len(df_data) * 0.6)
-    train_data, train_labels = np.array(df_data[:train_size]), df_label[:train_size]
-    valid_data, valid_labels = np.array(df_data[train_size:]), df_label[train_size:]
-    '''
-    train_labels = np.eye(2)[((train_labels + 1.0) / 2.0).astype(int)]
-    valid_labels = np.eye(2)[((valid_labels + 1.0) / 2.0).astype(int)]
+    return train, valid
 
-    return train_data, train_labels, valid_data, valid_labels
 
-def read_history(filename, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
+def history_from_df(df, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
     cols = []# + feature_cols
-    df = pd.read_csv(filename, index_col = 0)
-
     '''
     bollinger_cols = ['rolling', 'band']
     df[bollinger_cols[0]], df[bollinger_cols[1]] = bolinger_bands(df[val_col])
@@ -101,17 +90,29 @@ def read_history(filename, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_
         df_data = df_data.reshape([len(df_data), -1, len(all_feature_cols)])
 
     #df_label = df[val_col].rolling(2).mean().shift(-1) > df[val_col]
-    df_label = df[val_col].shift(-2) > df[val_col]
+    df_label = df[val_col].shift(-PRED_LENGTH) > df[val_col]
     df_label = np.array(df_label)
+    df_label = np.eye(2)[((df_label + 1.0) / 2.0).astype(int)]
 
-    train_data, train_labels, valid_data, valid_labels = separate_train_valid(df_data, df_label, _TARIN_RANGES, window_size=window_size)
+    df_target = (df[val_col].shift(-PRED_LENGTH) / df[val_col] - 1.0) * 100
+    df_target = np.array(df_target)
+
+    train_data, valid_data = separate_train_valid(df_data, _TARIN_RANGES, window_size=window_size)
+    train_labels, valid_labels = separate_train_valid(df_label, _TARIN_RANGES, window_size=window_size)
+    train_targets, valid_targets = separate_train_valid(df_target, _TARIN_RANGES, window_size=window_size)
 
     print("train_data shape", train_data.shape)
     if reshape_per_channel and len(train_data.shape) == 2:
         train_data = np.expand_dims(train_data, axis=-1)
         valid_data = np.expand_dims(valid_data, axis=-1)
 
-    return train_data, train_labels, valid_data, valid_labels
+    return train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets
+
+def read_history(filename, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
+    df = pd.read_csv(filename, index_col = 0)
+
+    return history_from_df(df, feature_cols=FEATURE_COLS, vol_col='Volume', val_col='Close', window_size=window_size,
+                    reshape_per_channel=True)
 
 def read_returns(filename, vol_col = 'Volume', val_col = 'Close', window_size = 10):
     cols = []# + feature_cols
@@ -128,7 +129,7 @@ def read_returns(filename, vol_col = 'Volume', val_col = 'Close', window_size = 
     df = df.dropna()
     df_data = df[cols]
     #df_label = df[val_col].rolling(2).mean().shift(-2) > df[val_col]
-    df_label = df[val_col].shift(-2) > df[val_col]
+    df_label = df[val_col].shift(-PRED_LENGTH) > df[val_col]
 
     df_data = np.array(df_data)
     df_label = np.array(df_label)
@@ -144,6 +145,23 @@ def read_returns(filename, vol_col = 'Volume', val_col = 'Close', window_size = 
 
     return train_data, train_labels, valid_data, valid_labels
 
+def generate_random_wak(n_walks, window_size = 22, reshape_per_channel = True):
+    random.seed(datetime.datetime.now())
+    rw1, rw2 = list(), list()
+    rw1.append(-1 if random.random() < 0.5 else 1)
+    rw2.append(-1 if random.random() < 0.5 else 1)
+    for i in range(1, n_walks):
+        movement = -1 if random.random() < 0.5 else 1
+        value = rw1[i - 1] + movement
+        rw1.append(value)
+        movement = -1 if random.random() < 0.5 else 1
+        value = rw1[i - 1] + movement
+        rw2.append(value)
+    dfr = pd.DataFrame({'walk1': rw1, 'walk2': rw2})
+
+    return history_from_df(dfr, feature_cols=['walk1', 'walk2'], vol_col='walk1', val_col='walk2', window_size = window_size,
+                    reshape_per_channel = reshape_per_channel)
+
 def read_sp500_close_history(feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
     return read_history('data/GSPC_ohlc.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col,
                         window_size = window_size, reshape_per_channel = reshape_per_channel)
@@ -157,6 +175,10 @@ def read_kosdaq_close_history(feature_cols = FEATURE_COLS, vol_col = 'Volume', v
 
 def read_bitstamp_btcusd_2017_hourly_history(feature_cols = ['close', 'volume'], vol_col = 'volume', val_col = 'close', window_size = 22, reshape_per_channel = True):
     return read_history('data/BTCUSD_transactions_2017_hour.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col,
+                        window_size = window_size, reshape_per_channel = reshape_per_channel)
+
+def read_bitstamp_btcusd_full_hourly_history(feature_cols = ['close', 'volume'], vol_col = 'volume', val_col = 'close', window_size = 22, reshape_per_channel = True):
+    return read_history('data/BTCUSD_transactions_full_hour.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col,
                         window_size = window_size, reshape_per_channel = reshape_per_channel)
 
 def read_goog_close(feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
