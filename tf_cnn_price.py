@@ -63,7 +63,7 @@ with tf.device(DEVICE_NAME):
 
 ################################################################################################
 
-train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_close_history(window_size = _WINDOW_SIZE)
+df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_close_history(window_size = _WINDOW_SIZE)
 #train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE)
 
 num_batch_steps = 1500 + 1
@@ -112,6 +112,11 @@ with tf.Session(graph=graph) as session:
             print('correlation between softmax and future return in test %.4f' % (np.corrcoef(test_sft_max[:,1][:3000], valid_targets[:3000])[0,1]))
             print()
 
+    n_na = len(df) - len(data_all)
+    acc, pr, lgt = session.run([accuracy, pred, logits], feed_dict={inputs: data_all, labels: labels_all, keep_prob_: keep_prob})
+
+    df_dropped = df.dropna()
+    df_dropped['pred'] = pr
     session.close()
     del session
 

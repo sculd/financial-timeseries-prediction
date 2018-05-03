@@ -1,6 +1,8 @@
 import pandas as pd, numpy as np, random, datetime
 
-FEATURE_COLS = ['Close', 'Volume']
+VAL_ADJUSTED = 'close_adj'
+VOLUME_ADJUSTED = 'volume_adj'
+FEATURE_COLS = [VAL_ADJUSTED, VOLUME_ADJUSTED]
 _TARIN_RANGES = [(0.0, 0.2), (0.3, 0.5), (0.7, 0.9)]
 NUM_FEATURES_RETURNS = 6
 N_CHANNELS_HISTORY = 2 # price, volume, 2 bollingers
@@ -53,16 +55,15 @@ def get_train_valid_indices(dl, train_ranges, window_size = 22):
         prev_train_range = train_range
     return train_indices, valid_indices
 
-def separate_train_valid(df, train_ranges, window_size=22):
-    train_indices, valid_indices = get_train_valid_indices(len(df), train_ranges, window_size=window_size)
+def separate_train_valid(data, train_ranges, window_size=22):
+    train_indices, valid_indices = get_train_valid_indices(len(data), train_ranges, window_size=window_size)
 
-    train = np.concatenate([df[pair[0]:pair[1]] for pair in train_indices], axis=0)
-    valid = np.concatenate([df[pair[0]:pair[1]] for pair in valid_indices], axis=0)
+    train = np.concatenate([data[pair[0]:pair[1]] for pair in train_indices], axis=0)
+    valid = np.concatenate([data[pair[0]:pair[1]] for pair in valid_indices], axis=0)
 
     return train, valid
 
-
-def history_from_df(df, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
+def df_to_np_tensors(df, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
     cols = []# + feature_cols
     '''
     bollinger_cols = ['rolling', 'band']
@@ -71,8 +72,8 @@ def history_from_df(df, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col
     df[_RSI_COLUMN] = rsi(df[val_col])
     '''
 
-    df[val_col] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).std()
-    df[vol_col] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).mean()
+    df[VAL_ADJUSTED] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).std()
+    df[VOLUME_ADJUSTED] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).mean()
 
     #df = (df - df.rolling(window_size).mean()) / df.rolling(window_size).std()
     all_feature_cols = feature_cols #+ bollinger_cols + [_RSI_COLUMN]
@@ -83,36 +84,38 @@ def history_from_df(df, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col
             cols.append(c)
     df = df.dropna()
 
-    df_data = df[cols]
-    df_data = np.array(df_data)
+    data = df[cols]
+    data = np.array(data)
     if reshape_per_channel:
-        print("df_data shape before reshape", df_data.shape)
-        df_data = df_data.reshape([len(df_data), -1, len(all_feature_cols)])
+        print("df_data shape before reshape", data.shape)
+        data = data.reshape([len(data), -1, len(all_feature_cols)])
 
     #df_label = df[val_col].rolling(2).mean().shift(-1) > df[val_col]
-    df_label = df[val_col].shift(-PRED_LENGTH) > df[val_col]
-    df_label = np.array(df_label)
-    df_label = np.eye(2)[((df_label + 1.0) / 2.0).astype(int)]
+    labels = df[val_col].shift(-PRED_LENGTH) > df[val_col]
+    labels = np.array(labels)
+    labels = np.eye(2)[((labels + 1.0) / 2.0).astype(int)]
 
-    df_target = (df[val_col].shift(-PRED_LENGTH) / df[val_col] - 1.0) * 100
-    df_target = np.array(df_target)
+    target = (df[val_col].shift(-PRED_LENGTH) / df[val_col] - 1.0) * 100
+    target = np.array(target)
 
-    train_data, valid_data = separate_train_valid(df_data, _TARIN_RANGES, window_size=window_size)
-    train_labels, valid_labels = separate_train_valid(df_label, _TARIN_RANGES, window_size=window_size)
-    train_targets, valid_targets = separate_train_valid(df_target, _TARIN_RANGES, window_size=window_size)
+    print("train_data shape", data.shape)
+    if reshape_per_channel and len(data.shape) == 2:
+        data = np.expand_dims(data, axis=-1)
 
-    print("train_data shape", train_data.shape)
-    if reshape_per_channel and len(train_data.shape) == 2:
-        train_data = np.expand_dims(train_data, axis=-1)
-        valid_data = np.expand_dims(valid_data, axis=-1)
+    return data, labels, target
 
-    return train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets
+def history_from_df(df, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
+    data, labels, target = df_to_np_tensors(df, feature_cols = feature_cols, vol_col = vol_col, val_col = val_col, window_size = window_size, reshape_per_channel = reshape_per_channel)
+
+    train_data, valid_data = separate_train_valid(data, _TARIN_RANGES, window_size=window_size)
+    train_labels, valid_labels = separate_train_valid(labels, _TARIN_RANGES, window_size=window_size)
+    train_targets, valid_targets = separate_train_valid(target, _TARIN_RANGES, window_size=window_size)
+
+    return df, data, labels, target, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets
 
 def read_history(filename, feature_cols = FEATURE_COLS, vol_col = 'Volume', val_col = 'Close', window_size = 22, reshape_per_channel = True):
     df = pd.read_csv(filename, index_col = 0)
-
-    return history_from_df(df, feature_cols=FEATURE_COLS, vol_col='Volume', val_col='Close', window_size=window_size,
-                    reshape_per_channel=True)
+    return history_from_df(df, feature_cols=FEATURE_COLS, vol_col='Volume', val_col='Close', window_size=window_size, reshape_per_channel=reshape_per_channel)
 
 def read_returns(filename, vol_col = 'Volume', val_col = 'Close', window_size = 10):
     cols = []# + feature_cols

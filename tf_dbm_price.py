@@ -47,8 +47,8 @@ with tf.device(DEVICE_NAME):
 
 ################################################################################################
 
-#train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_bitstamp_btcusd_full_hourly_history(window_size = _WINDOW_SIZE, reshape_per_channel = False)
-train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE, reshape_per_channel = False)
+df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_close_history(window_size = _WINDOW_SIZE, reshape_per_channel = False)
+#train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE, reshape_per_channel = False)
 
 num_batch_steps = 1500 + 1
 batch_size = 100
@@ -69,23 +69,31 @@ with tf.Session(graph=graph) as session:
         batch_labels = train_labels[offset:(offset + batch_size)]
 
         feed_dict = {inputs: batch_data, labels: batch_labels, keep_prob_: keep_prob}
-        summary, opt, acc = session.run([merged, optimizer, accuracy], feed_dict=feed_dict)
+        opt = session.run(optimizer, feed_dict=feed_dict)
 
-        if (step % 50 == 0 or step == num_batch_steps - 1):
-            summary, acc = session.run([merged, accuracy],
-                                            feed_dict={inputs: train_data, labels: train_labels, keep_prob_: keep_prob})
+        if (step % 10 == 0 or step == num_batch_steps - 1):
+            summary = session.run(merged, feed_dict={inputs: train_data, labels: train_labels, keep_prob_: keep_prob})
             train_writer.add_summary(summary, step)
 
-            test_summary, test_acc = session.run([merged,  accuracy],
-                                            feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
+            test_summary = session.run(merged, feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
             test_writer.add_summary(test_summary, step)
 
         if (step % 100 == 0 or step == num_batch_steps - 1):
+            acc, pr, lgt = session.run([accuracy, pred, logits], feed_dict={inputs: train_data, labels: train_labels, keep_prob_: keep_prob})
+            test_acc, pr_test, test_lgt = session.run([accuracy, pred, logits], feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
+
             print('step %d' % (step))
-            print('train accuracy: %.2f' % (acc))
-            print('test accuracy: %.2f' % (test_acc))
-            pr, logits = session.run([pred, logits], feed_dict={inputs: batch_data, labels: batch_labels, keep_prob_: keep_prob})
+            print('train accuracy: %.3f' % (acc))
+            print('test accuracy: %.3f' % (test_acc))
             print('mean prediction in a batch %.2f' % (np.mean(pr)))
+            print('mean prediction in the test set %.2f' % (np.mean(pr_test)))
+
+            lgt_exp = np.exp(lgt)
+            sft_max = lgt_exp / lgt_exp.sum(axis=1)[:, np.newaxis]
+            print('correlation between softmax and future return in train %.4f' % (np.corrcoef(sft_max[:, 1][:3000], train_targets[:3000])[0, 1]))
+            test_lgt_exp = np.exp(test_lgt)
+            test_sft_max = test_lgt_exp / test_lgt_exp.sum(axis=1)[:, np.newaxis]
+            print('correlation between softmax and future return in test %.4f' % (np.corrcoef(test_sft_max[:,1][:3000], valid_targets[:3000])[0,1]))
             print()
 
     session.close()
