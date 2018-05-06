@@ -5,14 +5,12 @@ import optimize_model
 
 ##########################################################
 
-_WINDOW_SIZE = 20
-_NUM_FEATURES = _WINDOW_SIZE * read_columns.N_CHANNELS_HISTORY
-N_CHANNELS = read_columns.N_CHANNELS_HISTORY
+_WINDOW_SIZE = 64
+_NUM_FEATURES = _WINDOW_SIZE * read_columns.N_CHANNELS_HISTORY / read_columns.WINDOW_STEP
+N_CHANNELS = read_columns.N_CHANNELS_HISTORY + 3
+
 
 _NUM_LABELS = 2 # up or down
-H1_SIZE = 100
-H2_SIZE = 50
-H3_SIZE = 20
 DEVICE_NAME = "/gpu:0"
 
 graph = tf.Graph()
@@ -35,14 +33,15 @@ with tf.device(DEVICE_NAME):
 
         # Model.
         def model(layer):
-            layer = fully_connect(layer, H1_SIZE)
-            layer = fully_connect(layer, H2_SIZE)
-            layer = fully_connect(layer, H3_SIZE)
+            layer = fully_connect(layer, 200)
+            layer = fully_connect(layer, 10)
+            layer = fully_connect(layer, 50)
+            layer = fully_connect(layer, 20)
             return layer
 
         layer = model(inputs)
-        pred, logits, cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
-        optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
+        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
+        optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(total_cost, global_step=global_step)
         #optimizer = tf.contrib.opt.PowerSignOptimizer().minimize(cost, global_step=global_step)
 
 ################################################################################################
@@ -50,9 +49,9 @@ with tf.device(DEVICE_NAME):
 df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_close_history(window_size = _WINDOW_SIZE, reshape_per_channel = False)
 #train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE, reshape_per_channel = False)
 
-num_batch_steps = 1500 + 1
+num_batch_steps = 2000 + 1
 batch_size = 100
-keep_prob = 0.5
+keep_prob = 0.35
 
 with tf.Session(graph=graph) as session:
     merged = tf.summary.merge_all()
@@ -78,13 +77,13 @@ with tf.Session(graph=graph) as session:
             test_summary = session.run(merged, feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
             test_writer.add_summary(test_summary, step)
 
-        if (step % 100 == 0 or step == num_batch_steps - 1):
+        if (step % 400 == 0 or step == num_batch_steps - 1):
             acc, pr, lgt = session.run([accuracy, pred, logits], feed_dict={inputs: train_data, labels: train_labels, keep_prob_: keep_prob})
             test_acc, pr_test, test_lgt = session.run([accuracy, pred, logits], feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
 
             print('step %d' % (step))
-            print('train accuracy: %.3f' % (acc))
-            print('test accuracy: %.3f' % (test_acc))
+            print('train accuracy vs benchmark: %.3f vs %.3f' % (acc, np.mean(train_labels[:, 1])))
+            print('test accuracy vs benchmark: %.3f vs %.3f' % (test_acc, np.mean(valid_labels[:, 1])))
             print('mean prediction in a batch %.2f' % (np.mean(pr)))
             print('mean prediction in the test set %.2f' % (np.mean(pr_test)))
 

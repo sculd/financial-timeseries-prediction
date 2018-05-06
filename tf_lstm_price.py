@@ -5,9 +5,9 @@ import optimize_model
 
 ##########################################################
 
-_WINDOW_SIZE = 8
-_NUM_FEATURES = _WINDOW_SIZE
-N_CHANNELS = read_columns.N_CHANNELS_HISTORY
+_WINDOW_SIZE = 64
+_NUM_FEATURES = _WINDOW_SIZE / read_columns.WINDOW_STEP
+N_CHANNELS = read_columns.N_CHANNELS_HISTORY + 3
 _LSTM_CELL_SIZE = 100
 _NUM_LABELS = 2 # up or down
 
@@ -27,24 +27,24 @@ with tf.device(DEVICE_NAME):
             cell = tf.contrib.rnn.LSTMCell(_LSTM_CELL_SIZE, state_is_tuple=True)
             val, _ = tf.nn.dynamic_rnn(cell, data, dtype=tf.float32)
             val = tf.transpose(val, [1, 0, 2])
-            layer = tf.gather(val, _WINDOW_SIZE - 1)
+            layer = tf.gather(val, _NUM_FEATURES - 1)
             layer = tf.nn.dropout(layer, keep_prob=keep_prob_)
 
             return layer
 
         layer = model(inputs)
-        pred, logits, cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
-        #optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(cost, global_step=global_step)
-        optimizer = tf.contrib.opt.PowerSignOptimizer().minimize(cost, global_step=global_step)
+        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
+        #optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(total_cost, global_step=global_step)
+        optimizer = tf.contrib.opt.PowerSignOptimizer().minimize(total_cost, global_step=global_step)
 
 ################################################################################################
 
-df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_close_history(window_size = _WINDOW_SIZE)
+df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
 #train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE)
 
-num_batch_steps = 5 * 100 + 1
+num_batch_steps = 15 * 100 + 1
 batch_size = 100
-keep_prob = 0.5
+keep_prob = 0.4
 
 with tf.Session(graph=graph) as session:
     merged = tf.summary.merge_all()
@@ -75,8 +75,8 @@ with tf.Session(graph=graph) as session:
             test_acc, pr_test, test_lgt = session.run([accuracy, pred, logits], feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
 
             print('step %d' % (step))
-            print('train accuracy: %.3f' % (acc))
-            print('test accuracy: %.3f' % (test_acc))
+            print('train accuracy vs benchmark: %.3f vs %.3f' % (acc, np.mean(train_labels[:, 1])))
+            print('test accuracy vs benchmark: %.3f vs %.3f' % (test_acc, np.mean(valid_labels[:, 1])))
             print('mean prediction in a batch %.2f' % (np.mean(pr)))
             print('mean prediction in the test set %.2f' % (np.mean(pr_test)))
 
