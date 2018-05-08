@@ -7,7 +7,8 @@ def optimize_classifier(layer, labels, num_labels):
 
     # Cost function and optimizer
     with tf.name_scope('cost'):
-        pred_cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=labels))
+        #pred_cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=labels))
+        pred_cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels))
         reg_cost = tf.losses.get_regularization_loss()
         total_cost = pred_cost + reg_cost
         tf.summary.scalar('total_cost', total_cost)
@@ -22,3 +23,19 @@ def optimize_classifier(layer, labels, num_labels):
         tf.summary.scalar('accuracy', accuracy)
 
     return pred, logits, total_cost, accuracy
+
+def optimize_regressor(layer, labels):
+    # Predictions
+    pred = tf.layers.dense(layer, 1)
+
+    # Cost function and optimizer
+    with tf.name_scope('cost_regression'):
+        pred_cost = tf.reduce_mean(tf.losses.mean_squared_error(predictions=pred, labels=labels))
+        reg_cost = tf.losses.get_regularization_loss()
+        total_cost = pred_cost + reg_cost
+        tf.summary.scalar('total_cost', total_cost)
+        tf.summary.scalar('prediction cost', pred_cost)
+        tf.summary.scalar('reg. cost', reg_cost)
+
+    # Accuracy
+    return pred, total_cost

@@ -7,7 +7,7 @@ WINDOW_STEP = 4
 NUM_FEATURES_RETURNS = 6
 N_CHANNELS_HISTORY = 8 # 2 prices, 2 volumes, 2 bollingers, rsi, return
 N_CHANNELS_RETURNS = 1
-PRED_LENGTH = 2
+PRED_LENGTH = 1
 _RSI_COLUMN = 'rsi'
 _RETURN_COLUMN = 'return'
 
@@ -76,16 +76,16 @@ def df_to_np_tensors(df, feature_cols = [], vol_col = 'Volume', val_col = 'Close
     df[rsic] = r
     cols += [rsic]
 
-    df[VAL_ADJUSTED] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).std()
-    df[VAL_ADJUSTED + "_mean"] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).mean()
-    df[VOLUME_ADJUSTED] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).std()
-    df[VOLUME_ADJUSTED + "_mean"] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).mean()
+    df[VAL_ADJUSTED] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).std() * 10
+    df[VAL_ADJUSTED + "_mean"] = (df[val_col] - df[val_col].rolling(window_size).mean()) / df[val_col].rolling(window_size).mean() * 10
+    df[VOLUME_ADJUSTED] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).std() * 10
+    df[VOLUME_ADJUSTED + "_mean"] = (df[vol_col] - df[vol_col].rolling(window_size).mean()) / df[vol_col].rolling(window_size).mean() * 10
     val_vol_cols = [VAL_ADJUSTED, VAL_ADJUSTED + "_mean", VOLUME_ADJUSTED, VOLUME_ADJUSTED + "_mean"]
     cols += val_vol_cols
 
     for col in feature_cols:
         c = col + '_adjusted'
-        df[c] = (df[col] - df[col].rolling(window_size).mean()) / df[col].rolling(window_size).std()
+        df[c] = (df[col] - df[col].rolling(window_size).mean()) / df[col].rolling(window_size).std() * 10
         cols.append(c)
 
     #df = (df - df.rolling(window_size).mean()) / df.rolling(window_size).std()
@@ -98,7 +98,7 @@ def df_to_np_tensors(df, feature_cols = [], vol_col = 'Volume', val_col = 'Close
     cols += [_RETURN_COLUMN]
     for i in range(0, window_size, WINDOW_STEP):
         rc = _RETURN_COLUMN + ('%d' % (i))
-        df[rc] = df[val_col].shift(i) / df[val_col] - 1.0
+        df[rc] = (df[val_col].shift(i) / df[val_col] - 1.0) * 10
         features.append(rc)
 
     df = df.dropna()
@@ -114,8 +114,9 @@ def df_to_np_tensors(df, feature_cols = [], vol_col = 'Volume', val_col = 'Close
     labels = np.array(labels)
     labels = np.eye(2)[((labels + 1.0) / 2.0).astype(int)]
 
-    target = (df[val_col].shift(-PRED_LENGTH) / df[val_col] - 1.0) * 100
+    target = (df[val_col].shift(-PRED_LENGTH) / df[val_col] - 1.0) * 10
     target = np.array(target)
+    target = target.reshape([len(target), 1])
 
     print("train_data shape", data.shape)
     if reshape_per_channel and len(data.shape) == 2:
@@ -196,6 +197,10 @@ def read_sp500_close_returns(vol_col = 'Volume', val_col = 'Close', window_size 
     return read_returns('data/GSPC_ohlc.csv', vol_col = vol_col, val_col = val_col, window_size = window_size)
 
 def read_kosdaq_close_history(feature_cols = [], vol_col = 'Volume', val_col = 'Close', window_size = 20, reshape_per_channel = True):
+    return read_history('data/KQ11_ohlc.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col,
+                        window_size = window_size, reshape_per_channel = reshape_per_channel)
+
+def read_kosdaq_ohlc_history(feature_cols = ['Open', 'High', 'Low'], vol_col = 'Volume', val_col = 'Close', window_size = 20, reshape_per_channel = True):
     return read_history('data/KQ11_ohlc.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col,
                         window_size = window_size, reshape_per_channel = reshape_per_channel)
 
