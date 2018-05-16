@@ -1,13 +1,13 @@
 import tensorflow as tf, math, pandas as pd, numpy as np
 import data.read_columns as read_columns
 import optimize_model
+from tensorflow.python import debug as tf_debug
 
 ##########################################################
 
 _WINDOW_SIZE = 64
 _NUM_FEATURES = _WINDOW_SIZE / read_columns.WINDOW_STEP
-N_CHANNELS = read_columns.N_CHANNELS_HISTORY + 3
-_NUM_LABELS = 2 # up or down
+N_CHANNELS = read_columns.N_CHANNELS_HISTORY# + 3
 
 DEVICE_NAME = "/gpu:0"
 
@@ -15,7 +15,7 @@ graph = tf.Graph()
 with tf.device(DEVICE_NAME):
     with graph.as_default():
         inputs = tf.placeholder(tf.float32, [None, _NUM_FEATURES, N_CHANNELS], name='inputs')
-        labels = tf.placeholder(tf.float32, [None, 2], name='labels')
+        labels = tf.placeholder(tf.float32, [None, read_columns.NUM_LABELS], name='labels')
         targets = tf.placeholder(tf.float32, [None, 1], name='targets')
         keep_prob_ = tf.placeholder(tf.float32, name='keep')
         global_step = tf.Variable(0)  # count the number of steps taken.
@@ -25,46 +25,65 @@ with tf.device(DEVICE_NAME):
             tf.summary.scalar('learning_rate', learning_rate_)
             tf.summary.scalar('learning_rate_regression', learning_rate_regr_)
 
-        def cnn(inputs, filters, kernel_size):
+        n_cnn = 0
+        def cnn(inputs, filters, kernel_size, pool_size):
+            global n_cnn
+            n_cnn += 1
             layer = tf.layers.conv1d(
                 inputs,
                 filters,
                 kernel_size = kernel_size,
                 padding = "same",
-                activation=tf.nn.leaky_relu
-                #kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0005)
-                #bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.004)
-                #activity_regularizer=tf.contrib.layers.l2_regularizer(scale=0.001)
+                name = "cnn_%d" % (n_cnn),
+                activation=tf.nn.leaky_relu,
+                kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.002),
+                bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.002)
+                #activity_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0005)
                 )
 
-            layer = tf.layers.max_pooling1d(
-                layer,
-                pool_size = 2,
-                strides = 2,
-                padding='same')
+            if pool_size > 1:
+                layer = tf.layers.max_pooling1d(
+                    layer,
+                    pool_size = pool_size,
+                    strides = pool_size,
+                    padding='same',
+                    name = "pooling_%d" % (n_cnn))
+
+            layer = tf.layers.batch_normalization(layer, name = "batch_norm_%d" % (n_cnn))
+            layer = tf.nn.dropout(layer, keep_prob=keep_prob_, name = "dropout_%d" % (n_cnn))
 
             return layer
 
         def model(data):
+            '''
+            '''
             # (batch, _NUM_FEATURES, N_CHANNELS) -> (batch, _NUM_FEATURES/2, 12)
-            layer = cnn(data, 12, 4)
-            # (batch, _NUM_FEATURES/2, 12) -> (batch, _NUM_FEATURES/4, 24)
-            layer = cnn(layer, 24, 4)
-            # (batch, _NUM_FEATURES/4, 24) -> (batch, _NUM_FEATURES/8, 48)
-            layer = cnn(layer, 48, 4)
-            # (batch, _NUM_FEATURES/8, 48) -> (batch, _NUM_FEATURES/16, 96)
-            layer = cnn(layer, 96, 2)
+            layer = cnn(data, 96, 8, 2)
+            # -> (batch, _NUM_FEATURES/4, 24)
+            layer = cnn(layer, 96, 8, 2)
+            # -> (batch, _NUM_FEATURES/8, 48)
+            layer = cnn(layer, 96, 8, 2)
+            # -> (batch, _NUM_FEATURES/16, 96)
+            #layer = cnn(layer, 96, 8, 2)
+
+            '''
+            # (batch, _NUM_FEATURES, N_CHANNELS) -> (batch, _NUM_FEATURES, 12)
+            layer = cnn(data, 12, 8, 1)
+            # -> (batch, _NUM_FEATURES, 24)
+            layer = cnn(layer, 24, 8, 1)
+            # -> (batch, _NUM_FEATURES, 48)
+            layer = cnn(layer, 48, 8, 1)
+            '''
 
             # Flatten and add dropout
             # 1/8 * 48 = 6
             # 1/16 * 64 = 4
-            layer = tf.reshape(layer, (-1, _NUM_FEATURES * 6))
-            #layer = tf.nn.dropout(layer, keep_prob=keep_prob_)
+            layer = tf.reshape(layer, (-1, 12 * _NUM_FEATURES))
 
             return layer
 
         layer = model(inputs)
-        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
+        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, read_columns.NUM_LABELS)
         pred_regressor, total_cost_regressor = optimize_model.optimize_regressor(layer, targets)
 
         optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(total_cost, global_step=global_step)
@@ -72,14 +91,17 @@ with tf.device(DEVICE_NAME):
 
 ################################################################################################
 
-df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
+#df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
+df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_goog_close(window_size = _WINDOW_SIZE)
 #train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE)
 
-num_batch_steps = 6000 + 1
+num_batch_steps = 5000 + 1
 batch_size = 90
-keep_prob = 0.35
+keep_prob = 0.50
 
 with tf.Session(graph=graph) as session:
+    session = tf_debug.LocalCLIDebugWrapperSession(session)
+
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter('train_log', session.graph)
     test_writer = tf.summary.FileWriter('test_log')

@@ -5,11 +5,10 @@ import optimize_model
 
 ##########################################################
 
-_WINDOW_SIZE = 64
+_WINDOW_SIZE = 16
 _NUM_FEATURES = _WINDOW_SIZE / read_columns.WINDOW_STEP
 N_CHANNELS = read_columns.N_CHANNELS_HISTORY + 3
 _LSTM_CELL_SIZE = 100
-_NUM_LABELS = 2 # up or down
 
 DEVICE_NAME = "/gpu:0"
 
@@ -17,7 +16,7 @@ graph = tf.Graph()
 with tf.device(DEVICE_NAME):
     with graph.as_default():
         inputs = tf.placeholder(tf.float32, [None, _NUM_FEATURES, N_CHANNELS], name='inputs')
-        labels = tf.placeholder(tf.float32, [None, _NUM_LABELS], name='labels')
+        labels = tf.placeholder(tf.float32, [None, read_columns.NUM_LABELS], name='labels')
         keep_prob_ = tf.placeholder(tf.float32, name='keep')
         global_step = tf.Variable(0)  # count the number of steps taken.
         learning_rate_ = tf.train.exponential_decay(0.003, global_step, 1, 0.999, staircase=True)
@@ -33,7 +32,7 @@ with tf.device(DEVICE_NAME):
             return layer
 
         layer = model(inputs)
-        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
+        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, read_columns.NUM_LABELS)
         #optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(total_cost, global_step=global_step)
         optimizer = tf.contrib.opt.PowerSignOptimizer().minimize(total_cost, global_step=global_step)
 
@@ -82,10 +81,11 @@ with tf.Session(graph=graph) as session:
 
             lgt_exp = np.exp(lgt)
             sft_max = lgt_exp / lgt_exp.sum(axis=1)[:, np.newaxis]
-            print('correlation between softmax and future return in train %.4f' % (np.corrcoef(sft_max[:, 1][:3000], train_targets[:3000])[0, 1]))
+            print('correlation between softmax and future return in train %.4f' % (np.corrcoef(sft_max[:, 1][:3000], train_targets[:3000,0])[0, 1]))
             test_lgt_exp = np.exp(test_lgt)
             test_sft_max = test_lgt_exp / test_lgt_exp.sum(axis=1)[:, np.newaxis]
-            print('correlation between softmax and future return in test %.4f' % (np.corrcoef(test_sft_max[:,1][:3000], valid_targets[:3000])[0,1]))
+            print('correlation between softmax and future return in test %.4f' % (np.corrcoef(test_sft_max[:,1][:3000], valid_targets[:3000,0])[0,1]))
+
             print()
 
     session.close()

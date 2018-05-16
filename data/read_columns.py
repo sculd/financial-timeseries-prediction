@@ -2,12 +2,14 @@ import pandas as pd, numpy as np, random, datetime
 
 VAL_ADJUSTED = 'close_adj'
 VOLUME_ADJUSTED = 'volume_adj'
-_TARIN_RANGES = [(0.0, 0.2), (0.3, 0.5), (0.7, 0.9)]
+#_TARIN_RANGES = [(0.0, 0.2), (0.3, 0.5), (0.7, 0.9)]
+_TARIN_RANGES = [(0.0, 0.7)]
 WINDOW_STEP = 4
 NUM_FEATURES_RETURNS = 6
 N_CHANNELS_HISTORY = 8 # 2 prices, 2 volumes, 2 bollingers, rsi, return
 N_CHANNELS_RETURNS = 1
 PRED_LENGTH = 1
+NUM_LABELS = 2
 _RSI_COLUMN = 'rsi'
 _RETURN_COLUMN = 'return'
 
@@ -48,7 +50,9 @@ def get_train_valid_indices(dl, train_ranges, window_size = 20):
             valid_indices.append((vs,ve))
 
         if i == len(train_ranges) - 1 and train_range[1] < 1.0:
-            vs = int(dl * prev_train_range[1])
+            vs = 0
+            if prev_train_range is not None:
+                vs = int(dl * prev_train_range[1])
             vs += window_size
             ve = dl
             valid_indices.append((vs,ve))

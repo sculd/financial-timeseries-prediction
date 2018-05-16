@@ -8,16 +8,13 @@ import optimize_model
 _WINDOW_SIZE = 64
 _NUM_FEATURES = _WINDOW_SIZE * read_columns.N_CHANNELS_HISTORY / read_columns.WINDOW_STEP
 N_CHANNELS = read_columns.N_CHANNELS_HISTORY + 3
-
-
-_NUM_LABELS = 2 # up or down
 DEVICE_NAME = "/gpu:0"
 
 graph = tf.Graph()
 with tf.device(DEVICE_NAME):
     with graph.as_default():
         inputs = tf.placeholder(tf.float32, [None, _NUM_FEATURES], name='data')
-        labels = tf.placeholder(tf.float32, [None, _NUM_LABELS], name='labels')
+        labels = tf.placeholder(tf.float32, [None, read_columns.NUM_LABELS], name='labels')
         keep_prob_ = tf.placeholder(tf.float32, name='keep')
         global_step = tf.Variable(0)  # count the number of steps taken.
         learning_rate_ = tf.train.exponential_decay(0.003, global_step, 1, 0.999, staircase=True)
@@ -25,22 +22,23 @@ with tf.device(DEVICE_NAME):
         def fully_connect(layer, out_size):
             layer = tf.layers.dense(layer, out_size,
                                     activation=tf.nn.relu,
-                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0040),
+                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0010),
                                     bias_regularizer=tf.contrib.layers.l2_regularizer(scale=0.0002)
                                     )
+            layer = tf.layers.batch_normalization(layer)
             layer = tf.nn.dropout(layer, keep_prob=keep_prob_)
             return layer
 
         # Model.
         def model(layer):
+            layer = fully_connect(layer, 400)
             layer = fully_connect(layer, 200)
-            layer = fully_connect(layer, 10)
+            layer = fully_connect(layer, 100)
             layer = fully_connect(layer, 50)
-            layer = fully_connect(layer, 20)
             return layer
 
         layer = model(inputs)
-        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, _NUM_LABELS)
+        pred, logits, total_cost, accuracy = optimize_model.optimize_classifier(layer, labels, read_columns.NUM_LABELS)
         optimizer = tf.train.AdamOptimizer(learning_rate_).minimize(total_cost, global_step=global_step)
         #optimizer = tf.contrib.opt.PowerSignOptimizer().minimize(cost, global_step=global_step)
 
@@ -51,7 +49,7 @@ df, data_all, labels_all, target_all, train_data, train_labels, train_targets, v
 
 num_batch_steps = 2000 + 1
 batch_size = 100
-keep_prob = 0.35
+keep_prob = 0.5
 
 with tf.Session(graph=graph) as session:
     merged = tf.summary.merge_all()
@@ -89,10 +87,11 @@ with tf.Session(graph=graph) as session:
 
             lgt_exp = np.exp(lgt)
             sft_max = lgt_exp / lgt_exp.sum(axis=1)[:, np.newaxis]
-            print('correlation between softmax and future return in train %.4f' % (np.corrcoef(sft_max[:, 1][:3000], train_targets[:3000])[0, 1]))
+            print('correlation between softmax and future return in train %.4f' % (np.corrcoef(sft_max[:, 1][:3000], train_targets[:3000,0])[0, 1]))
             test_lgt_exp = np.exp(test_lgt)
             test_sft_max = test_lgt_exp / test_lgt_exp.sum(axis=1)[:, np.newaxis]
-            print('correlation between softmax and future return in test %.4f' % (np.corrcoef(test_sft_max[:,1][:3000], valid_targets[:3000])[0,1]))
+            print('correlation between softmax and future return in test %.4f' % (np.corrcoef(test_sft_max[:,1][:3000], valid_targets[:3000,0])[0,1]))
+
             print()
 
     session.close()
