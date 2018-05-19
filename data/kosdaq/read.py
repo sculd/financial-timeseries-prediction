@@ -3,11 +3,12 @@ import data.read_columns as read_columns
 
 CLOSE_COLUMN = 'Close'
 VOLUME_COLUMN = 'Volume'
+WINDOW_SIZE = 32
 
 def _get_processed_file_name(window_size = 32, reshape_per_channel = True):
     return ""
 
-def process(window_size = 32, reshape_per_channel = True):
+def process(window_size = WINDOW_SIZE, reshape_per_channel = True):
     dir = dir_path = os.path.dirname(os.path.realpath(__file__))
     fs = [f for f in os.listdir(dir) if '.py' not in f]
 

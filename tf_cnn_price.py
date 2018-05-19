@@ -6,7 +6,7 @@ from tensorflow.python import debug as tf_debug
 
 ##########################################################
 
-_WINDOW_SIZE = 64
+_WINDOW_SIZE = kosdaq_read.WINDOW_SIZE
 _NUM_FEATURES = _WINDOW_SIZE / read_columns.WINDOW_STEP
 N_CHANNELS = read_columns.N_CHANNELS_HISTORY # + 3
 
@@ -95,6 +95,9 @@ with tf.device(DEVICE_NAME):
 #df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
 #df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_goog_close(window_size = _WINDOW_SIZE)
 train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = kosdaq_read.load()
+sample_size = 100000
+valid_sample_size = 1000
+train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = train_data[:sample_size], train_labels[:sample_size], train_targets[:sample_size], valid_data[:valid_sample_size], valid_labels[:valid_sample_size], valid_targets[:valid_sample_size]
 #train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE)
 
 num_batch_steps = 5000 + 1
@@ -122,7 +125,7 @@ with tf.Session(graph=graph) as session:
         opt = session.run(optimizer, feed_dict=feed_dict)
 
         if (step % 20 == 0 or step == num_batch_steps - 1):
-            summary = session.run(merged, feed_dict={inputs: train_data, labels: train_labels, targets: train_targets, keep_prob_: keep_prob})
+            summary = session.run(merged, feed_dict={inputs: batch_data, labels: batch_labels, targets: batch_targets, keep_prob_: keep_prob})
             train_writer.add_summary(summary, step)
 
             test_summary = session.run(merged, feed_dict = {inputs: valid_data, labels: valid_labels, targets: valid_targets, keep_prob_: keep_prob})
@@ -131,12 +134,11 @@ with tf.Session(graph=graph) as session:
         if (step % 500 == 0 or step == num_batch_steps - 1):
             acc, pr, lgt = session.run([accuracy, pred, logits], feed_dict={inputs: train_data, labels: train_labels, keep_prob_: keep_prob})
             test_acc, pr_test, test_lgt = session.run([accuracy, pred, logits], feed_dict = {inputs: valid_data, labels: valid_labels, keep_prob_: keep_prob})
-            all_acc, pr_all, all_lgt = session.run([accuracy, pred, logits], feed_dict = {inputs: data_all, labels: labels_all, keep_prob_: keep_prob})
+            #all_acc, pr_all, all_lgt = session.run([accuracy, pred, logits], feed_dict = {inputs: data_all, labels: labels_all, keep_prob_: keep_prob})
 
             print('step %d' % (step))
             print('train accuracy vs benchmark: %.3f vs %.3f' % (acc, np.mean(train_labels[:, 1])))
             print('test accuracy vs benchmark: %.3f vs %.3f' % (test_acc, np.mean(valid_labels[:, 1])))
-            print('whole data accuracy: %.3f' % (all_acc))
             print('mean prediction in a batch %.2f' % (np.mean(pr)))
             print('mean prediction in the test set %.2f' % (np.mean(pr_test)))
 
