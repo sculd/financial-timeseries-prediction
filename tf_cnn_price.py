@@ -1,5 +1,6 @@
 import tensorflow as tf, math, pandas as pd, numpy as np
 import data.read_columns as read_columns
+import data.kosdaq.read as kosdaq_read
 import optimize_model
 from tensorflow.python import debug as tf_debug
 
@@ -7,7 +8,7 @@ from tensorflow.python import debug as tf_debug
 
 _WINDOW_SIZE = 64
 _NUM_FEATURES = _WINDOW_SIZE / read_columns.WINDOW_STEP
-N_CHANNELS = read_columns.N_CHANNELS_HISTORY# + 3
+N_CHANNELS = read_columns.N_CHANNELS_HISTORY # + 3
 
 DEVICE_NAME = "/gpu:0"
 
@@ -92,7 +93,8 @@ with tf.device(DEVICE_NAME):
 ################################################################################################
 
 #df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
-df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_goog_close(window_size = _WINDOW_SIZE)
+#df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_goog_close(window_size = _WINDOW_SIZE)
+train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = kosdaq_read.load()
 #train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.generate_random_wak(10000, window_size = _WINDOW_SIZE)
 
 num_batch_steps = 5000 + 1
@@ -100,7 +102,7 @@ batch_size = 90
 keep_prob = 0.50
 
 with tf.Session(graph=graph) as session:
-    session = tf_debug.LocalCLIDebugWrapperSession(session)
+    #session = tf_debug.LocalCLIDebugWrapperSession(session)
 
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter('train_log', session.graph)

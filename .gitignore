@@ -4,3 +4,5 @@ data/Stock_Dataset*
 test_log*
 train_log*
 *.sst
+data/kosdaq/*.csv
+data/kosdaq/*.data

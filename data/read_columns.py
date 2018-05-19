@@ -49,18 +49,19 @@ def get_train_valid_indices(dl, train_ranges, window_size = 20):
             ve = int(dl * train_range[0])
             valid_indices.append((vs,ve))
 
-        if i == len(train_ranges) - 1 and train_range[1] < 1.0:
-            vs = 0
-            if prev_train_range is not None:
-                vs = int(dl * prev_train_range[1])
-            vs += window_size
-            ve = dl
-            valid_indices.append((vs,ve))
-
         prev_train_range = train_range
+
+    if train_ranges[-1][1] < 1.0:
+        vs = int(dl * train_ranges[-1][1])
+        vs += window_size
+        ve = dl
+        valid_indices.append((vs,ve))
+
     return train_indices, valid_indices
 
 def separate_train_valid(data, train_ranges, window_size=22):
+    if data is None:
+        return None, None
     train_indices, valid_indices = get_train_valid_indices(len(data), train_ranges, window_size=window_size)
 
     train = np.concatenate([data[pair[0]:pair[1]] for pair in train_indices], axis=0)
@@ -106,6 +107,8 @@ def df_to_np_tensors(df, feature_cols = [], vol_col = 'Volume', val_col = 'Close
         features.append(rc)
 
     df = df.dropna()
+    if len(df) == 0:
+        return None, None, None
 
     data = df[features]
     data = np.array(data)
