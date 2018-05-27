@@ -25,8 +25,8 @@ def rsi(stock_price, window_size = 20):
     d_up[d_up < 0] = 0
     d_down[d_down > 0] = 0
 
-    roll_up = pd.rolling_mean(d_up, window_size)
-    roll_down = pd.rolling_mean(d_down, window_size).abs()
+    roll_up = d_up.rolling(window=window_size).mean()
+    roll_down = d_down.rolling(window=window_size).mean()
 
     rs = roll_up / roll_down - 1.0
     return _RSI_COLUMN, rs
