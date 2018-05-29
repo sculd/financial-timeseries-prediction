@@ -148,8 +148,8 @@ def read_returns(filename, vol_col = 'Volume', val_col = 'Close', window_size = 
     cols = []# + feature_cols
     df = pd.read_csv(filename, index_col = 0)
     all_feature_cols = [vol_col]
-    for i in [1, 5, 10, 20, 30]:
-        c = val_col + ('%d' % (i))
+    for i in [i for i in range(1,window_size)]:
+        c = val_col + ('return_%d' % (i))
         df[c] = df[val_col].shift(i) / df[val_col]
         cols.append(c)
 
@@ -161,19 +161,21 @@ def read_returns(filename, vol_col = 'Volume', val_col = 'Close', window_size = 
     #df_label = df[val_col].rolling(2).mean().shift(-2) > df[val_col]
     df_label = df[val_col].shift(-PRED_LENGTH) > df[val_col]
 
-    df_data = np.array(df_data)
-    df_label = np.array(df_label)
+    data = np.array(df_data)
+    labels = np.array(df_label)
+    labels = np.eye(2)[((labels + 1.0) / 2.0).astype(int)]
     print("df_data shape before reshape", df_data.shape)
-    df_data = df_data.reshape([len(df_data), -1, len(all_feature_cols)])
+    df_data = np.reshape(data, [len(data), -1, len(all_feature_cols)])
 
-    train_data, train_labels, valid_data, valid_labels = separate_train_valid(df_data, df_label, _TARIN_RANGES, window_size=window_size)
+    train_data, valid_data = separate_train_valid(df_data, _TARIN_RANGES, window_size=window_size)
+    train_labels, valid_labels = separate_train_valid(labels, _TARIN_RANGES, window_size=window_size)
 
     print("train_data shape", train_data.shape)
     if len(train_data.shape) == 2:
         train_data = np.expand_dims(train_data, axis=-1)
         valid_data = np.expand_dims(valid_data, axis=-1)
 
-    return train_data, train_labels, valid_data, valid_labels
+    return df, data, labels, train_data, train_labels, valid_data, valid_labels
 
 def generate_random_wak(n_walks, window_size = 20, reshape_per_channel = True):
     random.seed(datetime.datetime.now())
@@ -200,7 +202,7 @@ def read_sp500_ohlc_history(feature_cols = ['Open', 'High', 'Low'], vol_col = 'V
     return read_history('data/GSPC_ohlc.csv', feature_cols = feature_cols, vol_col = vol_col, val_col = val_col,
                         window_size = window_size, reshape_per_channel = reshape_per_channel)
 
-def read_sp500_close_returns(vol_col = 'Volume', val_col = 'Close', window_size = 10):
+def read_sp500_close_returns(vol_col = 'Volume', val_col = 'Close', window_size = 20):
     return read_returns('data/GSPC_ohlc.csv', vol_col = vol_col, val_col = val_col, window_size = window_size)
 
 def read_kosdaq_close_history(feature_cols = [], vol_col = 'Volume', val_col = 'Close', window_size = 20, reshape_per_channel = True):

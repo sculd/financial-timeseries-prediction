@@ -14,23 +14,26 @@ import data.kosdaq.read as kosdaq_read
 
 ##########################################################
 
-_WINDOW_SIZE = kosdaq_read.WINDOW_SIZE
+_WINDOW_SIZE = 20
 _NUM_FEATURES = _WINDOW_SIZE / read_columns.WINDOW_STEP
 N_CHANNELS = read_columns.N_CHANNELS_HISTORY + 3
 
+batch_size = 300
 class_dim=2
-hid_dim=128
 reg = 0.000
 
 model = Sequential()
-model.add(Flatten(batch_input_shape=(None, _NUM_FEATURES, N_CHANNELS)))
-model.add(Dense(33, activation='softmax'))
+model.add(Flatten(batch_input_shape=(None, _WINDOW_SIZE, 1)))
 model.add(BatchNormalization())
-model.add(Dense(40, activation='softmax'))
+model.add(Dense(33, activation='relu'))
 model.add(BatchNormalization())
-model.add(Dense(4, activation='softmax'))
+model.add(Dropout(0.7))
+model.add(Dense(40, activation='relu'))
 model.add(BatchNormalization())
-model.add(Dense(50, activation='softmax'))
+model.add(Dropout(0.7))
+model.add(Dense(4, activation='relu'))
+model.add(BatchNormalization())
+model.add(Dense(50, activation='relu'))
 model.add(BatchNormalization())
 model.add(Dense(2, activation='softmax'))
 model.summary()
@@ -40,11 +43,12 @@ model.compile(loss='categorical_crossentropy',
               metrics=['accuracy'])
 
 print('loading the data')
-df, data_all, labels_all, target_all, x_train, y_train, train_targets, x_test, y_test, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
+#df, data_all, labels_all, target_all, x_train, y_train, train_targets, x_test, y_test, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
+df, data, labels, x_train, y_train, x_test, y_test = read_columns.read_sp500_close_returns(window_size = _WINDOW_SIZE)
 print('done loading the data')
 
-tensorboard = TensorBoard(log_dir="logs".format(time()))
-model.fit(x_train, y_train, batch_size=60, validation_split=0.4, epochs=20, callbacks=[tensorboard])
-score = model.evaluate(x_test, y_test, batch_size=16)
+tensorboard = TensorBoard(log_dir="logs")
+model.fit(x_train, y_train, batch_size=batch_size, validation_split=0.4, epochs=40)
+score = model.evaluate(x_test, y_test, batch_size=batch_size)
 print('score', score)
 
