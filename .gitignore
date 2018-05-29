@@ -3,6 +3,7 @@ data/XNAS*
 data/Stock_Dataset*
 test_log*
 train_log*
+logs/*
 *.sst
 data/kosdaq/*.csv
 data/kosdaq/*.data
