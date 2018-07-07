@@ -70,6 +70,21 @@ def separate_train_valid(data, train_ranges, window_size=22):
     return train, valid
 
 def df_to_np_tensors(df, feature_cols = [], vol_col = 'Volume', val_col = 'Close', window_size = 20, reshape_per_channel = True):
+    """returns the trainable np tensors.
+
+    Args:
+      emb_dim: The dimension of the Embedding layer.
+      num_words: The number of the most frequent tokens
+        to be used from the corpus.
+      sentence_length: The number of words in each sentence.
+        Longer sentences get cut, shorter ones padded.
+      hid_dim: The dimension of the Embedding layer.
+      class_dim: The number of the CNN layer filters.
+      dropout_rate: The portion of kept value in the Dropout layer.
+    Returns:
+      tf.keras.models.Model: A model.
+    """
+
     cols = []
     features = []
     bbc1, bbc2, bb1, bb2 = bolinger_bands(df[val_col])

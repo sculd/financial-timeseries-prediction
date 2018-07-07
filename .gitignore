@@ -6,5 +6,6 @@ train_log*
 logs/*
 *.sst
 data/kosdaq/*.csv
+data/kosdaq/csvs/*
 data/kosdaq/*.data
 *.pyc
