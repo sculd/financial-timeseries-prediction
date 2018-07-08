@@ -1,21 +1,32 @@
-import glove, datetime, re, tensorflow as tf
+import glove, datetime, re, tensorflow as tf, os, json
 from nltk.corpus import stopwords
+import tensorflow_hub as hub
 
 _STOP_WORDS = set(stopwords.words())
 _TIME_DELTA_ONE_DAY = datetime.timedelta(days = 1)
 _DATE_REGEXP = re.compile('\d{4}-\d{2}-\d{2}')
 
-FILENAME_BLOOMBERG = 'sp500_bloomberg_combined.txt'
-FILENAME_REUTERS = 'sp500_reuters_combined.txt'
-FILENAME_BLOOMBERG_EMBEDDINGS = 'sp500_bloomberg_combined_with_embeddings.txt'
-FILENAME_REUTERS_EMBEDDINGS = 'sp500_reuters_combined_with_embeddings.txt'
+_DATAFILES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'datafiles')
+FILENAME_BLOOMBERG = os.path.join(_DATAFILES_DIR, 'sp500_bloomberg_combined.txt')
+FILENAME_REUTERS = os.path.join(_DATAFILES_DIR, 'sp500_reuters_combined.txt')
+FILENAME_BLOOMBERG_EMBEDDINGS = os.path.join(_DATAFILES_DIR, 'sp500_bloomberg_combined_with_embeddings.txt')
+FILENAME_REUTERS_EMBEDDINGS = os.path.join(_DATAFILES_DIR, 'sp500_reuters_combined_with_embeddings.txt')
+
+_EMBEDDING_BATCH_SIZE = 10
+DEVICE_NAME = "/gpu:0"
+graph = tf.Graph()
+
+with tf.device(DEVICE_NAME):
+    with graph.as_default():
+        embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/2")
+
 
 class Day:
     def __init__(self, date):
         self.date = date
+        # series is the series of stock past prices that is related to this date
         self.series = None
         self.sentences = []
-        self.embeddings = []
 
     def set_series(self, series):
         self.series = series
@@ -27,16 +38,23 @@ class Day:
         return self.series is not None and len(self.sentences) > 0
 
     def sentence_to_embeddings(self):
-        import sentence_embedding
-        self.embeddings = []
-        for sentence in self.sentences:
-            self.embeddings.append(sentence_embedding.get_sentence_embedding(sentence))
+        outfname = os.path.join(_DATAFILES_DIR, 'embedding_%s.txt' % (str(self.date)))
+        if os.path.exists(outfname):
+            return
+
+        with tf.Session(graph=graph) as session:
+            session.run(tf.global_variables_initializer())
+            session.run(tf.tables_initializer())
+            sentense_strs = map(lambda ts: ts.strip().split(',')[1], self.sentences)
+            el = session.run(embed(sentense_strs))
+            with open(outfname, 'w') as outf:
+                for j, e in enumerate(el):
+                    outf.write('%s:::%s\n' % (sentense_strs[j], json.dumps(e.tolist())))
 
     def do_print(self):
         print(self.date)
         print(self.series)
         print('sentences of length %d' % (len(self.sentences)))
-        print('embeddings of length %d' % (len(self.embeddings)))
 
 class Days:
     def __init__(self, filename):
@@ -49,7 +67,7 @@ class Days:
                 self.by_date[date] = Day(date)
             elif 'series:' in line:
                 series = list(map(lambda v: float(v), line.split('series:')[1].split()))
-                self.by_date[date].series = series
+                self.by_date[date].set_series(series)
             else:
                 self.by_date[date].sentences.append(line)
 
@@ -96,20 +114,6 @@ class Days:
                 for sentence in day.sentences:
                     outfile.write(sentence + '\n')
 
-    def save_embeddings(self, filename):
-        with open(filename, 'w') as outfile:
-            k_sorted = sorted(self.by_date.keys())
-            for date in k_sorted:
-                if not self.if_date_in(date):
-                    continue
-                day = self.get_at(date)
-                if not day.if_series_and_news():
-                    continue
-                outfile.write(str(date) + '\n')
-                outfile.write('series:' +  ' '.join(map(lambda v:str(v), day.series)) + '\n')
-                for embedding in day.embeddings:
-                    outfile.write(' '.join(list(map(lambda v: str(v), embedding))) + '\n')
-
 class DailyIter:
     def __init__(self, daily):
         self.daily = daily
@@ -146,5 +150,11 @@ if __name__ == '__main__':
         day = dit.next()
         day.sentence_to_embeddings()
         day.do_print()
-    dy.save_embeddings(FILENAME_REUTERS_EMBEDDINGS)
+
+    dy = Days(FILENAME_BLOOMBERG)
+    dit = DailyIter(dy)
+    while dit.has_next():
+        day = dit.next()
+        day.sentence_to_embeddings()
+        day.do_print()
 

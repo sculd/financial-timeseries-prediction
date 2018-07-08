@@ -29,7 +29,7 @@ def load_data(csvfilename, column_name, seq_len, if_normalise_window, if_binary_
     train = result[:, :]
     np.random.shuffle(train)
     x_train = train[:, :-2]
-    y_train = train[:, -1]
+    y_train = train[:, -2]
     if if_binary_classification:
         y_train = y_train > 0
         y_train = np.eye(2)[((y_train + 1.0) / 2.0).astype(int)]

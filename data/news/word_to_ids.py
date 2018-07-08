@@ -1,5 +1,7 @@
-import glove as glove, numpy as np, re
+import re
 from nltk.corpus import stopwords
+
+from data.news import glove as glove
 
 print('reading glove')
 glove.get()

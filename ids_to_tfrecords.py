@@ -1,4 +1,7 @@
-import tensorflow as tf, data.news_with_series_and_word_ids as news_with_ids, sys
+import data.news.news_with_series_and_word_ids as news_with_ids
+import sys
+import tensorflow as tf
+
 
 def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))

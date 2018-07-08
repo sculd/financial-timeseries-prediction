@@ -16,7 +16,7 @@ model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['ac
 
 X_train, y_train, X_test, y_test = pickle.load(open('data/kosdaq/close_50_seq_classification.data', 'r'))
 
-model.fit(X_train, y_train, batch_size=512, nb_epoch=5, validation_split=0.25)
+model.fit(X_train, y_train, batch_size=512, nb_epoch=3, validation_split=0.25)
 
 score = model.evaluate(X_test, y_test, batch_size=512)
 print('score', score)

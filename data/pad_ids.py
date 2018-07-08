@@ -1,4 +1,5 @@
-import news_with_series_and_word_ids as news_with_ids
+from data.news import news_with_series_and_word_ids as news_with_ids
+
 
 def to_tfrecord(infile):
     dy = news_with_ids.Days(infile)
