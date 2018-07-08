@@ -22,7 +22,11 @@ class CNN(tf.keras.models.Model):
     layer_conv4 = tf.keras.layers.GlobalMaxPooling1D()(layer_conv4)
     layer_conv4 = tf.keras.layers.Flatten()(layer_conv4)
 
-    layer = tf.keras.layers.concatenate([layer_conv4, layer_conv3], axis=1)
+    layer_conv5 = tf.keras.layers.Conv1D(128, 5, activation="relu")(layer)
+    layer_conv5 = tf.keras.layers.GlobalMaxPooling1D()(layer_conv5)
+    layer_conv5 = tf.keras.layers.Flatten()(layer_conv5)
+
+    layer = tf.keras.layers.concatenate([layer_conv3, layer_conv4, layer_conv5], axis=1)
     layer = tf.keras.layers.BatchNormalization()(layer)
     layer = tf.keras.layers.Dropout(_DROPOUT_RATE)(layer)
 

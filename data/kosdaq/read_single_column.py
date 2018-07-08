@@ -3,7 +3,7 @@ import data.read_single_column as read_single_column
 
 CLOSE_COLUMN = 'Close'
 VOLUME_COLUMN = 'Volume'
-WINDOW_SIZE = 32
+SEQ_LEN = 50
 
 def load_data(column_name, seq_len, if_normalise_window, if_binary_classification):
     dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'csvs')
@@ -21,7 +21,7 @@ def load_data(column_name, seq_len, if_normalise_window, if_binary_classificatio
             x_test.append(x_t)
             y_test.append(y_t)
 
-        if i > 10:
+        if i > 30:
             break
 
     x_train, y_train = np.concatenate(x_train), np.concatenate(y_train)
@@ -29,10 +29,10 @@ def load_data(column_name, seq_len, if_normalise_window, if_binary_classificatio
     return [x_train, y_train, x_test, y_test]
 
 if __name__ == '__main__':
-    xt, yt, xv, yv = load_data('Close', 50, True, False)
+    xt, yt, xv, yv = load_data('Close', SEQ_LEN, True, False)
     pickle.dump([xt, yt, xv, yv], open('close_50_seq_regression.data', 'w'))
 
-    xt, yt, xv, yv = load_data('Close', 50, True, True)
+    xt, yt, xv, yv = load_data('Close', SEQ_LEN, True, True)
     pickle.dump([xt, yt, xv, yv], open('close_50_seq_classification.data', 'w'))
     xt, yt, xv, yv = pickle.load(open('close_50_seq.data', 'r'))
     pass
