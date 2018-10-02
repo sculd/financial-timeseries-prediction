@@ -94,7 +94,8 @@ with tf.device(DEVICE_NAME):
 
 #df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_ohlc_history(window_size = _WINDOW_SIZE)
 #df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_goog_close(window_size = _WINDOW_SIZE)
-train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = kosdaq_read.load()
+#train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = kosdaq_read.load()
+df, data_all, labels_all, target_all, train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = read_columns.read_sp500_close_history(window_size = _WINDOW_SIZE)
 sample_size = 100000
 valid_sample_size = 1000
 train_data, train_labels, train_targets, valid_data, valid_labels, valid_targets = train_data[:sample_size], train_labels[:sample_size], train_targets[:sample_size], valid_data[:valid_sample_size], valid_labels[:valid_sample_size], valid_targets[:valid_sample_size]

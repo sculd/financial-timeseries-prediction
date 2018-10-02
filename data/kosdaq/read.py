@@ -53,6 +53,8 @@ def process(window_size = WINDOW_SIZE, reshape_per_channel = True):
 
 def load():
     dir = dir_path = os.path.dirname(os.path.realpath(__file__))
+    if not os.path.exists(os.path.join(dir, "train.data")):
+        process()
     train_data = np.load(os.path.join(dir, "train.data"))
     train_labels = np.load(os.path.join(dir, "train.labels.data"))
     train_targets = np.load(os.path.join(dir, "train.targets.data"))
