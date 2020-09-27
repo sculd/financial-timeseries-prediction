@@ -5,6 +5,7 @@ import models.keras.single_column_cnn as single_column_cnn
 import data.read_columns as read_columns
 import data.sp500.read_closes as read_sp500_closes
 
+_NUM_VARS = 75
 _SEQ_LEN = 10
 
 ##########################################################

@@ -2,28 +2,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+import models.keras.multi_column_lstm
 
-_HIHDDEN_1 = 50
-_HIHDDEN_2 = 100
-_DROPOUT_RATE = 0.5
-
-class LSTM(tf.keras.models.Model):
+class LSTM(models.keras.multi_column_lstm.LSTM):
   """CNN for sentimental analysis."""
 
   def __init__(self, seq_len, if_binary_classification):
-    input = tf.keras.layers.Input(shape=(seq_len, 1,), dtype=tf.float32)
-    layer = input
-    layer = tf.keras.layers.LSTM(_HIHDDEN_1, return_sequences=True)(layer)
-    layer = tf.keras.layers.Dropout(_DROPOUT_RATE)(layer)
+    super().__init__(seq_len, 1, if_binary_classification)
 
-    layer = tf.keras.layers.LSTM(_HIHDDEN_2, return_sequences=False)(layer)
-    layer = tf.keras.layers.Dropout(_DROPOUT_RATE)(layer)
 
-    output_dim = 1
-    if if_binary_classification:
-        output_dim = 2
-    output = tf.keras.layers.Dense(output_dim, activation="linear")(layer)
 
-    super(LSTM, self).__init__(inputs=[input], outputs=output)
 
