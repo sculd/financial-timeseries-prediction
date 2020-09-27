@@ -13,10 +13,13 @@ df_t = df_t[columns]
 
 
 import keras.preprocessing
+from keras.utils import to_categorical
 _SEQ_LEN = 50
 
 x = df_t.drop('target', axis=1).values
-y = df_t['target'].values.reshape(-1, 1)
+y = to_categorical(df_t['target'].values.reshape(-1, 1))
+
+
 batches = keras.preprocessing.timeseries_dataset_from_array(x, y, _SEQ_LEN)
 
 for batch in batches:
@@ -30,7 +33,7 @@ for batch in batches:
 _NUM_VARS = 14
 
 import models.keras.multi_column_lstm
-model = models.keras.multi_column_lstm.LSTM(_SEQ_LEN, _NUM_VARS, False)
+model = models.keras.multi_column_lstm.LSTM(_SEQ_LEN, _NUM_VARS, True)
 model.summary()
 
 model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])

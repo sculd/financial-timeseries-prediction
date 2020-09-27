@@ -13,7 +13,7 @@ def add_binary_target_column(df, step_forward, value_column_name = 'close', targ
     :return:
     '''
     df[target_column_name] = -df[value_column_name].diff(-step_forward) > 0
-    df.target = df.target.astype(np.int64) * 2 - 1.0
+    df.target = df.target.astype(np.int64)
     df = df[:-step_forward]
     return df
 
