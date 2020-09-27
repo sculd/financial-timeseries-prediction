@@ -4,9 +4,9 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-_HIHDDEN_1 = 50
-_HIHDDEN_2 = 100
-_DROPOUT_RATE = 0.5
+_HIHDDEN_1 = 500
+_HIHDDEN_2 = 500
+_DROPOUT_RATE = 0.3
 
 class LSTM(tf.keras.models.Model):
   """CNN for sentimental analysis."""
@@ -14,6 +14,7 @@ class LSTM(tf.keras.models.Model):
   def __init__(self, seq_len, n_columns, if_binary_classification):
     input = tf.keras.layers.Input(shape=(seq_len, n_columns,), dtype=tf.float32)
     layer = input
+    layer = tf.keras.layers.BatchNormalization()(layer)
     layer = tf.keras.layers.LSTM(_HIHDDEN_1, return_sequences=True)(layer)
     layer = tf.keras.layers.Dropout(_DROPOUT_RATE)(layer)
 
